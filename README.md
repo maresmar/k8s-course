@@ -9,6 +9,7 @@ Sources for a practice lecture about containers used in NSWI026 MFF UK and SEPA4
     - (Optional) Try k9s
 3. Deploy resource using kubectl
 4. Deploy resource using helm
+5. Try GitOps and ArgoCD
 
 
 ## 01 Setup
@@ -40,20 +41,27 @@ kubectl get po -A
 brew install k9s
 ```
 
+Let's see what minikube is simulating for us:
+
+![k8s cluster, The Kubernetes Authors, CC BY 4.0](img/kubernetes-cluster-architecture-1.svg)
+
 ## 02 Observe
 Let's check a first deployment, we can try it using Kubernetes Dashboard
 
->  Ingress -> Service -> Pod { Container
-> Check namespaces
 
 ```bash
 minikube addons enable metrics-server
 minikube dashboard
 ```
 
-Check the cluster using dashboard in browser, eg http://127.0.0.1:37737/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/
+Check the cluster using dashboard in browser, eg. http://127.0.0.1:37737/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/ or use `k9s`.
 
-Optional, check it using `k9s`.
+Observe existing resoruces in cluster
+
+- See Service -> Pod -> Container
+- Check namespaces
+
+![Service, The Kubernetes Authors, CC BY 4.0](img/module_04_labels.svg)
 
 ## 03 Deploy a resource using kubectl
 
@@ -96,3 +104,51 @@ kubectl delete -f 01-deployment.yaml
 helm install helm-release hello-helm --values hello-helm/values.yaml
 helm list
 ```
+
+## 05 ArgoCD
+
+1. Let's try to automate it using ArgoCD
+
+```bash
+# Create a new namespace
+kubectl create ns argocd
+# Deploy a new resources
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.5.8/manifests/install.yaml
+# Forward port to localhost
+kubectl port-forward svc/argocd-server -n argocd 9090:443
+```
+
+2. Let's check ArgoCD web GUI at https://localhost:9090, default username is `admin`, password we get using
+
+```bash
+kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
+```
+
+3. Add new project in ArgoCD using following config:
+
+```yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: example
+spec:
+  project: default
+  source:
+    repoURL: 'https://github.com/maresmar/k8s-course.git' # Or better replace with your repository
+    path: 02-helm/hello-helm
+    targetRevision: HEAD
+  destination:
+    server: 'https://kubernetes.default.svc'
+    namespace: argocd
+  syncPolicy: {}
+```
+
+4. Use GUI to "SYNC" changes, and observe results.
+5. Commit a new message in `cm.yaml` and try to "REFRESH" (changes from GitHub) and "SYNC" them to cluster.
+
+## Resources
+- https://minikube.sigs.k8s.io/docs/handbook/controls/
+- https://k9scli.io/
+- https://kubernetes.io/docs/tutorials/kubernetes-basics/expose/expose-intro/
+- https://argo-cd.readthedocs.io/en/stable/
+- https://medium.com/@mehmetodabashi/installing-argocd-on-minikube-and-deploying-a-test-application-caa68ec55fbf
