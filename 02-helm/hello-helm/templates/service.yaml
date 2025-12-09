@@ -1,0 +1,15 @@
+---
+{{- if .Values.service.create -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx
+spec:
+  type: NodePort
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: {{ .Values.service.nodePort }}
+  selector:
+    app: nginx
+{{- end }}
