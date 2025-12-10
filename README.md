@@ -54,7 +54,7 @@ minikube addons enable metrics-server
 minikube dashboard
 ```
 
-Check the cluster using dashboard in browser, eg. http://127.0.0.1:37737/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/ or use `k9s`.
+Check the cluster using dashboard in browser, eg. http://127.0.0.1:37737/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/.
 
 Observe existing resoruces in cluster
 
@@ -71,17 +71,36 @@ Let's try first deployment of an Nginx container,
 kubectl apply -f 01-deployment.yaml
 ```
 
-Try a port forwarding using `k9s` or `kubectl proxy` 
+You can validate results in dashboard or using `k9s`.
 
-```bash
-export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
-echo Name of the Pod: $POD_NAME
+### Try to access new resources
 
-kubectl proxy
-curl http://localhost:8001/api/v1/namespaces/default/pods/$POD_NAME:80/proxy/
-```
+- Pod 
+  - This is mostly for debug purposes
+  - Pod name change with each restart
+    ```bash
+    export POD_NAME=$(kubectl get pods -o go-template --template '{{range .items}}{{.metadata.name}}{{"\n"}}{{end}}')
+    echo Name of the Pod: $POD_NAME
+    ```
+  - Let's try `kubectl proxy` (port-forward would work as well)
+    ```bash
+    kubectl proxy
+    curl http://localhost:8001/api/v1/namespaces/default/pods/$POD_NAME:80/proxy/
+    ```
 
-> We use deployment for nginx.  Deployment is stateless (name and IP could change), data are stored in ephemeral storage (eg. `/tmp` folder) or shares a single PersistentVolumeClaim (PVC) across all pods. StatefulSet is statuful (name and IP is stable), data are stored in volumeClaimTemplates to create a unique, persistent PVC for each pod (e.g., data-db-0, data-db-1).
+- Service
+    - Service will be stable, even if pod is recreated
+    - Let's try `kubectl port-forward` (proxy would work as well)
+      ```bash
+      kubectl port-forward svc/nginx 9090:80
+      curl http://localhost:9090
+      ```
+- Ingress 
+  - We would normally have an ingress that will be pointing to a service.
+
+### Deployment vs StatefulSet
+
+We use deployment for `nginx`.  Deployment is stateless (name and IP could change), data are stored in ephemeral storage (eg. `/tmp` folder) or shares a single PersistentVolumeClaim (PVC) across all pods. StatefulSet is statuful (name and IP is stable), data are stored in volumeClaimTemplates to create a unique, persistent PVC for each pod (e.g., data-db-0, data-db-1).
 
 ## 04 Deploy a resource using Helm
 
@@ -107,9 +126,14 @@ helm list
 
 ## 05 ArgoCD
 
-1. Let's try to automate it using ArgoCD
+Let's try to automate deployment using GitOps principles. 
+
+We can deploy ArgoCD to our cluster.
 
 ```bash
+# Remove previous deployment
+helm uninstall helm-release
+
 # Create a new namespace
 kubectl create ns argocd
 # Deploy a new resources
@@ -118,13 +142,13 @@ kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2
 kubectl port-forward svc/argocd-server -n argocd 9090:443
 ```
 
-2. Let's check ArgoCD web GUI at https://localhost:9090, default username is `admin`, password we get using
+Let's check ArgoCD web GUI at https://localhost:9090, default username is `admin`, password we get using
 
 ```bash
 kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d; echo
 ```
 
-3. Add new project in ArgoCD using following config:
+Add new project in ArgoCD using following config:
 
 ```yaml
 apiVersion: argoproj.io/v1alpha1
@@ -143,8 +167,9 @@ spec:
   syncPolicy: {}
 ```
 
-4. Use GUI to "SYNC" changes, and observe results.
-5. Commit a new message in `cm.yaml` and try to "REFRESH" (changes from GitHub) and "SYNC" them to cluster.
+Use GUI to "SYNC" changes, and observe results. 
+
+You could also commit a new message in `cm.yaml` and try to "REFRESH" (changes from GitHub) and "SYNC" them to cluster.
 
 ## Resources
 - https://minikube.sigs.k8s.io/docs/handbook/controls/
