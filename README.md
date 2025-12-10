@@ -173,6 +173,7 @@ You could also commit a new message in `cm.yaml` and try to "REFRESH" (changes f
 
 ## Resources
 - https://minikube.sigs.k8s.io/docs/handbook/controls/
+- https://minikube.sigs.k8s.io/docs/handbook/accessing/
 - https://k9scli.io/
 - https://kubernetes.io/docs/tutorials/kubernetes-basics/expose/expose-intro/
 - https://argo-cd.readthedocs.io/en/stable/
